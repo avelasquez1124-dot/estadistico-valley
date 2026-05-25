@@ -1,3 +1,4 @@
+[index.html.html](https://github.com/user-attachments/files/28234450/index.html.html)
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -6,7 +7,7 @@
 <title>Estadístico Académico Alberto</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
- @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@300;400;500;600&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@300;400;500;600&display=swap');
 
   :root {
     --primary: #1a3a5c;
@@ -753,8 +754,7 @@
 <!-- ─── LOGIN OVERLAY ──────────────────────────────────────────────────────── -->
 <div id="loginOverlay">
   <div class="login-box">
-    <div class="login-icon"><img width="110" height="70" alt="logo" src="https://github.com/user-attachments/assets/3c61daab-6481-4d4b-b69c-02224a9a92a6" />
-</div>
+    <div class="login-icon">📊</div>
     <h2>Estadístico Académico Alberto</h2>
     <p>Sistema de Análisis de Resultados — Ingresa tus credenciales para continuar</p>
 
@@ -780,8 +780,7 @@
 <header>
   <div class="header-inner">
     <div class="logo">
-      <div class="logo-icon"><img width="120" height="60" alt="logo" src="https://github.com/user-attachments/assets/3434d357-31ba-47ba-b064-caf0f252cc32" />
-</div>
+      <div class="logo-icon">📊</div>
       <h1>Estadístico Académico Alberto<span>Sistema de Análisis de Resultados</span></h1>
     </div>
     <button class="btn-logout" onclick="doLogout()">⬅ Cerrar Sesión</button>
