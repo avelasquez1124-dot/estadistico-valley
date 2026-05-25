@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Estadístico Académico Alberto</title>
+<title>Estadístico Académico Valley</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@300;400;500;600&display=swap');
@@ -753,8 +753,9 @@
 <!-- ─── LOGIN OVERLAY ──────────────────────────────────────────────────────── -->
 <div id="loginOverlay">
   <div class="login-box">
-    <div class="login-icon">📊</div>
-    <h2>Estadístico Académico Alberto</h2>
+    <div class="login-icon"><img width="100" height="60" alt="logo" src="https://github.com/user-attachments/assets/6c07e938-1834-41ea-b407-c2ebd761427c" />
+</div>
+    <h2>Estadístico Académico Valley</h2>
     <p>Sistema de Análisis de Resultados — Ingresa tus credenciales para continuar</p>
 
     <div class="login-error" id="loginError">⚠ Usuario o contraseña incorrectos. Intenta de nuevo.</div>
@@ -779,8 +780,9 @@
 <header>
   <div class="header-inner">
     <div class="logo">
-      <div class="logo-icon">📊</div>
-      <h1>Estadístico Académico Alberto<span>Sistema de Análisis de Resultados</span></h1>
+      <div class="logo-icon"><img width="110" height="60" alt="logo" src="https://github.com/user-attachments/assets/ea153171-dd65-433d-a0ea-278ab2323e5c" />
+</div>
+      <h1>Estadístico Académico Valley<span>Sistema de Análisis de Resultados</span></h1>
     </div>
     <button class="btn-logout" onclick="doLogout()">⬅ Cerrar Sesión</button>
   </div>
