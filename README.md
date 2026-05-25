@@ -753,7 +753,8 @@
 <!-- ─── LOGIN OVERLAY ──────────────────────────────────────────────────────── -->
 <div id="loginOverlay">
   <div class="login-box">
-    <div class="login-icon"><img width="100" height="80" alt="logo" src="https://github.com/user-attachments/assets/6c07e938-1834-41ea-b407-c2ebd761427c" />
+    <div class="login-icon"><<img width="110" height="80" alt="logo" src="https://github.com/user-attachments/assets/6ffcbf14-2a25-49c8-8175-4c7ff1165839" />
+ />
 </div>
     <h2>Estadístico Académico Valley</h2>
     <p>Sistema de Análisis de Resultados — Ingresa tus credenciales para continuar</p>
@@ -780,7 +781,8 @@
 <header>
   <div class="header-inner">
     <div class="logo">
-      <div class="logo-icon"><img width="110" height="60" alt="logo" src="https://github.com/user-attachments/assets/ea153171-dd65-433d-a0ea-278ab2323e5c" />
+      <div class="logo-icon"><<img width="110" height="60" alt="logo" src="https://github.com/user-attachments/assets/8d69f2e2-e245-4b18-88db-a3f8a5695afd" />
+ />
 </div>
       <h1>Estadístico Académico Valley<span>Sistema de Análisis de Resultados</span></h1>
     </div>
