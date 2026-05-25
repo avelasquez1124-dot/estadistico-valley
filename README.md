@@ -1,3 +1,4 @@
+[index.html.HTML](https://github.com/user-attachments/files/28235469/index.html.HTML)
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -753,7 +754,7 @@
 <!-- ─── LOGIN OVERLAY ──────────────────────────────────────────────────────── -->
 <div id="loginOverlay">
   <div class="login-box">
-    <div class="login-icon"><img width="100" height="60" alt="logo" src="https://github.com/user-attachments/assets/6c07e938-1834-41ea-b407-c2ebd761427c" />
+    <div class="login-icon"><img width="100" height="80" alt="logo" src="https://github.com/user-attachments/assets/6c07e938-1834-41ea-b407-c2ebd761427c" />
 </div>
     <h2>Estadístico Académico Valley</h2>
     <p>Sistema de Análisis de Resultados — Ingresa tus credenciales para continuar</p>
