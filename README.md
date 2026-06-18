@@ -1,1 +1,1 @@
-# estadistico-valley
+![Logo de Estadístico Valley](logo.jpeg)
