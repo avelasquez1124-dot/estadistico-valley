@@ -1,0 +1,1388 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Estadístico Académico Valley</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@300;400;500;600&display=swap');
+
+  :root {
+    --primary: #1a3a5c;
+    --accent: #e84545;
+    --gold: #f5a623;
+    --light: #f0f4f8;
+    --white: #ffffff;
+    --gray: #6b7c93;
+    --border: #d0dbe8;
+    --green: #27ae60;
+    --orange: #e67e22;
+    --red: #c0392b;
+    --teal: #2980b9;
+    --purple: #8e44ad;
+    --shadow: 0 4px 24px rgba(26,58,92,0.10);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Barlow', sans-serif;
+    background: var(--light);
+    color: var(--primary);
+    min-height: 100vh;
+  }
+
+  /* ─── LOGIN ──────────────────────────────────────────────────────────── */
+  #loginOverlay {
+    position: fixed;
+    inset: 0;
+    background: linear-gradient(135deg, #0f2438 0%, #1a3a5c 50%, #0f2438 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+  }
+
+  .login-box {
+    background: var(--white);
+    border-radius: 22px;
+    padding: 48px 44px 40px;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.45);
+    text-align: center;
+    position: relative;
+    animation: loginAppear 0.4s ease;
+  }
+
+  @keyframes loginAppear {
+    from { opacity: 0; transform: translateY(24px) scale(0.97); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  .login-icon {
+    width: 72px; height: 72px;
+    background: var(--primary);
+    border-radius: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 34px;
+    margin-bottom: 20px;
+    box-shadow: 0 6px 20px rgba(26,58,92,0.25);
+  }
+
+  .login-box h2 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 26px;
+    font-weight: 900;
+    color: var(--primary);
+    margin-bottom: 6px;
+    letter-spacing: 0.5px;
+  }
+
+  .login-box p {
+    font-size: 13px;
+    color: var(--gray);
+    margin-bottom: 30px;
+  }
+
+  .login-field {
+    margin-bottom: 16px;
+    text-align: left;
+  }
+
+  .login-field label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--gray);
+    margin-bottom: 6px;
+  }
+
+  .login-field input {
+    width: 100%;
+    padding: 13px 16px;
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    font-size: 15px;
+    font-family: 'Barlow', sans-serif;
+    color: var(--primary);
+    transition: border-color 0.2s, box-shadow 0.2s;
+    outline: none;
+    background: #f8fafc;
+  }
+
+  .login-field input:focus {
+    border-color: var(--primary);
+    background: var(--white);
+    box-shadow: 0 0 0 3px rgba(26,58,92,0.10);
+  }
+
+  .login-field input.error {
+    border-color: var(--red);
+    background: #fff5f5;
+  }
+
+  .btn-login {
+    width: 100%;
+    background: var(--primary);
+    color: var(--white);
+    padding: 14px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 16px;
+    font-family: 'Barlow Condensed', sans-serif;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    border: none;
+    transition: background 0.2s, transform 0.1s;
+    margin-top: 8px;
+  }
+
+  .btn-login:hover { background: #122a44; }
+  .btn-login:active { transform: scale(0.98); }
+
+  .login-error {
+    background: #fdecea;
+    color: var(--red);
+    border: 1.5px solid #f5b7b1;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    display: none;
+    text-align: left;
+  }
+
+  .login-footer {
+    margin-top: 24px;
+    font-size: 11px;
+    color: var(--border);
+  }
+
+  /* ─── APP (hidden until login) ───────────────────────────────────────── */
+  #appWrapper { display: none; }
+
+  header {
+    background: var(--primary);
+    color: var(--white);
+    padding: 0;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 16px rgba(26,58,92,0.25);
+  }
+
+  .header-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 32px;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .logo-icon {
+    width: 44px; height: 44px;
+    background: var(--accent);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+  }
+
+  .logo h1 {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 900;
+    font-size: 22px;
+    letter-spacing: 1px;
+    line-height: 1.1;
+  }
+
+  .logo span {
+    display: block;
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: 2px;
+    opacity: 0.7;
+    text-transform: uppercase;
+  }
+
+  .btn-logout {
+    background: rgba(255,255,255,0.12);
+    color: var(--white);
+    border: 1.5px solid rgba(255,255,255,0.25);
+    padding: 8px 18px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .btn-logout:hover { background: rgba(255,255,255,0.22); }
+
+  main { max-width: 1400px; margin: 0 auto; padding: 32px 24px; }
+
+  /* Upload zone */
+  .upload-zone {
+    background: var(--white);
+    border: 2.5px dashed var(--border);
+    border-radius: 18px;
+    padding: 52px 32px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.25s;
+    margin-bottom: 32px;
+    position: relative;
+  }
+
+  .upload-zone:hover, .upload-zone.drag-over {
+    border-color: var(--primary);
+    background: #edf2f8;
+  }
+
+  .upload-icon { font-size: 52px; margin-bottom: 16px; }
+  .upload-zone h2 { font-family: 'Barlow Condensed', sans-serif; font-size: 26px; font-weight: 700; margin-bottom: 8px; }
+  .upload-zone p { color: var(--gray); font-size: 14px; margin-bottom: 20px; }
+
+  .btn-upload {
+    display: inline-block;
+    background: var(--primary);
+    color: var(--white);
+    padding: 12px 28px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 15px;
+    cursor: pointer;
+    transition: background 0.2s;
+    border: none;
+  }
+
+  .btn-upload:hover { background: #122a44; }
+  #fileInput { display: none; }
+
+  .file-info {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: #e8f5e9;
+    color: var(--green);
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-weight: 600;
+    font-size: 14px;
+    margin-top: 16px;
+    display: none;
+  }
+
+  /* Stats Dashboard */
+  #dashboard { display: none; }
+
+  .section-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--primary);
+    letter-spacing: 0.5px;
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .section-title::after {
+    content: '';
+    flex: 1;
+    height: 2px;
+    background: var(--border);
+  }
+
+  /* Summary Cards */
+  .summary-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 18px;
+    margin-bottom: 32px;
+  }
+
+  .summary-card {
+    background: var(--white);
+    border-radius: 14px;
+    padding: 22px 20px;
+    box-shadow: var(--shadow);
+    border-top: 4px solid transparent;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .summary-card.total { border-color: var(--primary); }
+  .summary-card.approved { border-color: var(--green); }
+  .summary-card.one-two { border-color: var(--orange); }
+  .summary-card.three-plus { border-color: var(--red); }
+
+  .summary-card .card-num {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 42px;
+    font-weight: 900;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .summary-card.total .card-num { color: var(--primary); }
+  .summary-card.approved .card-num { color: var(--green); }
+  .summary-card.one-two .card-num { color: var(--orange); }
+  .summary-card.three-plus .card-num { color: var(--red); }
+
+  .summary-card .card-label {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--gray);
+  }
+
+  /* Main Stats Table */
+  .table-wrapper {
+    background: var(--white);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    margin-bottom: 32px;
+  }
+
+  .table-scroll { overflow-x: auto; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  thead tr:first-child th {
+    background: var(--primary);
+    color: var(--white);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    padding: 12px 14px;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  thead tr:last-child th {
+    background: #223d5e;
+    color: rgba(255,255,255,0.8);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    padding: 8px 10px;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  thead th.col-grade {
+    background: #0f2438;
+    text-align: left;
+    min-width: 130px;
+  }
+
+  tbody tr { transition: background 0.15s; }
+  tbody tr:hover { background: #f5f8fb; }
+  tbody tr.total-row { background: #e8eef5; font-weight: 700; }
+
+  tbody td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #edf2f7;
+    text-align: center;
+    vertical-align: middle;
+  }
+
+  tbody td.grade-name {
+    font-weight: 700;
+    text-align: left;
+    font-size: 13px;
+    white-space: nowrap;
+    color: var(--primary);
+    padding-left: 18px;
+  }
+
+  .num-total { font-weight: 700; font-size: 15px; color: var(--primary); }
+  .num-m { font-size: 12px; color: var(--gray); }
+
+  .cell-approved { background: #e8f5e9 !important; }
+  .cell-approved .num-total { color: var(--green); }
+
+  .cell-one-two { background: #fff3e0 !important; }
+  .cell-one-two .num-total { color: var(--orange); }
+
+  .cell-three-plus { background: #fdecea !important; }
+  .cell-three-plus .num-total { color: var(--red); }
+
+  /* Promedio section */
+  .promedio-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 18px;
+    margin-bottom: 32px;
+  }
+
+  .promedio-card {
+    background: var(--white);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+
+  .promedio-header {
+    padding: 14px 20px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--white);
+    letter-spacing: 1px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .cat-AA .promedio-header { background: #1e7e34; }
+  .cat-AS .promedio-header { background: #1a6fb8; }
+  .cat-AF .promedio-header { background: #d68910; }
+  .cat-AI .promedio-header { background: #c0392b; }
+
+  .promedio-body { padding: 14px 20px; }
+
+  .prom-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+
+  .prom-row:last-child { border-bottom: none; }
+  .prom-grade { font-weight: 600; color: var(--primary); }
+  .prom-nums { display: flex; gap: 16px; }
+  .prom-total { font-weight: 700; font-size: 15px; }
+  .prom-f { font-size: 12px; color: var(--gray); }
+
+  /* Detained subjects detail */
+  .detained-section {
+    background: var(--white);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    margin-bottom: 32px;
+    overflow: hidden;
+  }
+
+  .detained-header {
+    background: var(--primary);
+    color: var(--white);
+    padding: 16px 24px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+  }
+
+  .detained-body { padding: 20px 24px; }
+
+  .detained-grade {
+    margin-bottom: 20px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .detained-grade-title {
+    background: var(--light);
+    padding: 10px 16px;
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--primary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .detained-list { padding: 12px 16px; }
+
+  /* Subject block with students */
+  .subj-block {
+    margin-bottom: 14px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .subj-block-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 14px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s;
+  }
+
+  .subj-block-header:hover { filter: brightness(0.97); }
+
+  .subj-block.one-two .subj-block-header {
+    background: #fff3e0;
+    border-bottom: 1px solid #f5c386;
+  }
+
+  .subj-block.three-plus .subj-block-header {
+    background: #fdecea;
+    border-bottom: 1px solid #f5b7b1;
+  }
+
+  .subj-block-name {
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .subj-block.one-two .subj-block-name { color: #b7640a; }
+  .subj-block.three-plus .subj-block-name { color: #922b21; }
+
+  .subj-block-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--gray);
+  }
+
+  .subj-count-badge {
+    font-weight: 700;
+    padding: 2px 9px;
+    border-radius: 12px;
+    font-size: 12px;
+  }
+
+  .subj-block.one-two .subj-count-badge { background: #f5c386; color: #7d4e0f; }
+  .subj-block.three-plus .subj-count-badge { background: #f5b7b1; color: #7b241c; }
+
+  .toggle-arrow {
+    font-size: 11px;
+    transition: transform 0.2s;
+    color: var(--gray);
+  }
+
+  .toggle-arrow.open { transform: rotate(90deg); }
+
+  .subj-students {
+    display: none;
+    padding: 10px 14px;
+    background: #fafbfc;
+  }
+
+  .subj-students.open { display: block; }
+
+  .student-list {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .student-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 11px;
+    border-radius: 16px;
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid var(--border);
+    background: var(--white);
+    color: var(--primary);
+  }
+
+  .student-pill .sex-badge {
+    font-size: 10px;
+    opacity: 0.6;
+  }
+
+  .cat-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 8px;
+    padding: 4px 0;
+  }
+
+  .cat-label.one-two { color: var(--orange); }
+  .cat-label.three-plus { color: var(--red); }
+
+  /* Export button */
+  .export-bar {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .btn-export {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--green);
+    color: var(--white);
+    padding: 12px 26px;
+    border-radius: 9px;
+    font-weight: 700;
+    font-size: 15px;
+    cursor: pointer;
+    border: none;
+    transition: background 0.2s;
+    box-shadow: 0 2px 8px rgba(39,174,96,0.25);
+  }
+
+  .btn-export:hover { background: #1e8449; }
+
+  .btn-reset {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: transparent;
+    color: var(--gray);
+    padding: 12px 20px;
+    border-radius: 9px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    border: 2px solid var(--border);
+    transition: all 0.2s;
+  }
+
+  .btn-reset:hover { border-color: var(--primary); color: var(--primary); }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    background: var(--white);
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 28px;
+    box-shadow: var(--shadow);
+    font-size: 13px;
+  }
+
+  .legend-item { display: flex; align-items: center; gap: 7px; }
+  .legend-dot { width: 12px; height: 12px; border-radius: 50%; }
+  .legend-title { font-weight: 700; margin-right: 4px; }
+
+  .cat-defs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+
+  .cat-def {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .cat-def.AA { background: #e8f5e9; color: #1e7e34; border: 1.5px solid #a9dfbf; }
+  .cat-def.AS { background: #e8f0fa; color: #1a6fb8; border: 1.5px solid #a9c7ef; }
+  .cat-def.AF { background: #fef9e7; color: #d68910; border: 1.5px solid #f5cba7; }
+  .cat-def.AI { background: #fdecea; color: #c0392b; border: 1.5px solid #f5b7b1; }
+
+  .error-toast {
+    background: #fdecea;
+    color: #c0392b;
+    border: 1.5px solid #f5b7b1;
+    border-radius: 10px;
+    padding: 14px 20px;
+    margin-bottom: 20px;
+    font-size: 14px;
+    display: none;
+  }
+
+  .loading {
+    text-align: center;
+    padding: 40px;
+    color: var(--gray);
+    display: none;
+  }
+
+  .spinner {
+    display: inline-block;
+    width: 36px; height: 36px;
+    border: 4px solid var(--border);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-bottom: 12px;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .no-data { color: var(--gray); font-style: italic; font-size: 12px; }
+
+  @media (max-width: 700px) {
+    main { padding: 16px 8px; }
+    .header-inner { padding: 12px 16px; }
+    .summary-cards { grid-template-columns: 1fr 1fr; }
+    .login-box { padding: 36px 22px 28px; margin: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ─── LOGIN OVERLAY ──────────────────────────────────────────────────────── -->
+<div id="loginOverlay">
+  <div class="login-box">
+    <div class="login-icon"><img width="100" height="80" alt="logo" src="https://github.com/user-attachments/assets/6c07e938-1834-41ea-b407-c2ebd761427c" />
+</div>
+    <h2>Estadístico Académico Valley</h2>
+    <p>Sistema de Análisis de Resultados — Ingresa tus credenciales para continuar</p>
+
+    <div class="login-error" id="loginError">⚠ Usuario o contraseña incorrectos. Intenta de nuevo.</div>
+
+    <div class="login-field">
+      <label>Usuario</label>
+      <input type="text" id="loginUser" placeholder="Escribe tu usuario" autocomplete="username">
+    </div>
+    <div class="login-field">
+      <label>Contraseña</label>
+      <input type="password" id="loginPass" placeholder="Escribe tu contraseña" autocomplete="current-password">
+    </div>
+    <button class="btn-login" onclick="doLogin()">Ingresar al Sistema</button>
+
+    <div class="login-footer">© Sistema Académico — Acceso Restringido</div>
+  </div>
+</div>
+
+<!-- ─── APP WRAPPER ────────────────────────────────────────────────────────── -->
+<div id="appWrapper">
+
+<header>
+  <div class="header-inner">
+    <div class="logo">
+      <div class="logo-icon"><img width="110" height="60" alt="logo" src="https://github.com/user-attachments/assets/ea153171-dd65-433d-a0ea-278ab2323e5c" />
+</div>
+      <h1>Estadístico Académico Valley<span>Sistema de Análisis de Resultados</span></h1>
+    </div>
+    <button class="btn-logout" onclick="doLogout()">⬅ Cerrar Sesión</button>
+  </div>
+</header>
+
+<main>
+  <div class="upload-zone" id="uploadZone">
+    <div class="upload-icon">📂</div>
+    <h2>Sube el archivo de notas</h2>
+    <p>Archivo Excel (.xlsx) con hojas por grado, nombres, sexo y notas de los alumnos.</p>
+    <label class="btn-upload" for="fileInput" style="display:inline-block;cursor:pointer;">Seleccionar archivo Excel</label>
+    <input type="file" id="fileInput" accept=".xlsx,.xls" style="position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;">
+    <div class="file-info" id="fileInfo">✅ <span id="fileName">archivo.xlsx</span></div>
+  </div>
+
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <p>Procesando datos...</p>
+  </div>
+
+  <div class="error-toast" id="errorToast"></div>
+
+  <div id="dashboard">
+
+    <div class="export-bar">
+      <button class="btn-reset" onclick="resetApp()">↩ Cargar otro archivo</button>
+      <button class="btn-export" onclick="exportToExcel()">⬇ Descargar Excel</button>
+    </div>
+
+    <div class="section-title">Resumen General</div>
+    <div class="summary-cards" id="summaryCards"></div>
+
+    <div class="legend">
+      <span class="legend-title">Convención:</span>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div> Aprobados Limpios (sin materias aplazadas)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--orange)"></div> Aplazados de 1 a 2 materias</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div> Aplazados de 3 o más materias</div>
+      <div class="legend-item">📋 TOTAL / 👩 Mujeres (en paréntesis)</div>
+    </div>
+
+    <div class="section-title">Estadístico por Grado y Categoría</div>
+    <div class="table-wrapper">
+      <div class="table-scroll">
+        <table id="mainTable"></table>
+      </div>
+    </div>
+
+    <div class="section-title">Detalle de Materias Aplazadas</div>
+    <div class="detained-section">
+      <div class="detained-header">📌 Materias aplazadas por grado — haz clic en cada materia para ver los alumnos</div>
+      <div class="detained-body" id="detainedDetail"></div>
+    </div>
+
+    <div class="section-title">Alumnos por Categoría de Promedio</div>
+    <div class="cat-defs">
+      <div class="cat-def AA">AA — Excelente (90–100)</div>
+      <div class="cat-def AS">AS — Satisfactorio (76–89)</div>
+      <div class="cat-def AF">AF — Aceptable (60–75)</div>
+      <div class="cat-def AI">AI — Insuficiente (&lt; 60 o sin promedio)</div>
+    </div>
+    <div class="promedio-grid" id="promedioGrid"></div>
+
+  </div>
+</main>
+
+</div><!-- /appWrapper -->
+
+<script>
+// ─── AUTH ─────────────────────────────────────────────────────────────────────
+const VALID_USER = 'avelasquez';
+const VALID_PASS = '1124';
+
+function doLogin() {
+  const user = document.getElementById('loginUser').value.trim();
+  const pass = document.getElementById('loginPass').value.trim();
+  const errEl = document.getElementById('loginError');
+  const userInput = document.getElementById('loginUser');
+  const passInput = document.getElementById('loginPass');
+
+  if (user === VALID_USER && pass === VALID_PASS) {
+    errEl.style.display = 'none';
+    userInput.classList.remove('error');
+    passInput.classList.remove('error');
+    document.getElementById('loginOverlay').style.display = 'none';
+    document.getElementById('appWrapper').style.display = 'block';
+  } else {
+    errEl.style.display = 'block';
+    userInput.classList.add('error');
+    passInput.classList.add('error');
+    passInput.value = '';
+    passInput.focus();
+  }
+}
+
+function doLogout() {
+  document.getElementById('loginOverlay').style.display = 'flex';
+  document.getElementById('appWrapper').style.display = 'none';
+  document.getElementById('loginUser').value = '';
+  document.getElementById('loginPass').value = '';
+  document.getElementById('loginError').style.display = 'none';
+  document.getElementById('loginUser').classList.remove('error');
+  document.getElementById('loginPass').classList.remove('error');
+  resetApp();
+}
+
+// Allow Enter key in login
+document.getElementById('loginUser').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+document.getElementById('loginPass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+
+// ─── State ────────────────────────────────────────────────────────────────────
+let globalStats = null;
+const PASSING_SCORE = 60;
+
+function getCategory(avg) {
+  if (avg >= 90) return 'AA';
+  if (avg >= 76) return 'AS';
+  if (avg >= 60) return 'AF';
+  return 'AI';
+}
+
+// Sheet names are used directly as grade names — no fixed mapping needed.
+
+// ─── File Upload ──────────────────────────────────────────────────────────────
+const uploadZone = document.getElementById('uploadZone');
+const fileInput = document.getElementById('fileInput');
+
+// Drag & drop only (no click handler on zone to avoid double-trigger)
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault();
+  uploadZone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) processFile(file);
+});
+
+fileInput.addEventListener('change', () => {
+  if (fileInput.files[0]) processFile(fileInput.files[0]);
+});
+
+function processFile(file) {
+  document.getElementById('fileName').textContent = file.name;
+  document.getElementById('fileInfo').style.display = 'inline-flex';
+  document.getElementById('loading').style.display = 'block';
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('errorToast').style.display = 'none';
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      const stats = analyzeWorkbook(wb);
+      globalStats = stats;
+      renderDashboard(stats);
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('dashboard').style.display = 'block';
+    } catch(err) {
+      document.getElementById('loading').style.display = 'none';
+      showError('Error procesando el archivo: ' + err.message + '. Asegúrate de que sea un archivo Excel válido con el formato correcto.');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function showError(msg) {
+  const t = document.getElementById('errorToast');
+  t.textContent = '⚠ ' + msg;
+  t.style.display = 'block';
+}
+
+function resetApp() {
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('fileInfo').style.display = 'none';
+  fileInput.value = '';
+  globalStats = null;
+}
+
+// ─── Analysis ─────────────────────────────────────────────────────────────────
+function analyzeWorkbook(wb) {
+  const grades = [];
+
+  wb.SheetNames.forEach((sheetName, idx) => {
+    const ws = wb.Sheets[sheetName];
+    const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+    if (!raw || raw.length < 3) return;
+
+    const headerRow = raw[0];
+    const sexRow = raw[1];
+
+    const students = [];
+    for (let c = 1; c < headerRow.length; c++) {
+      const name = headerRow[c];
+      if (!name) continue;
+      const sex = sexRow[c] ? sexRow[c].toString().trim().toUpperCase() : 'M';
+      students.push({ name, sex, scores: {} });
+    }
+
+    if (students.length === 0) return;
+
+    const subjects = [];
+    for (let r = 2; r < raw.length; r++) {
+      const subj = raw[r][0];
+      if (!subj) continue;
+      const subjName = subj.toString().trim();
+      if (subjName.toLowerCase().includes('conduct') || subjName.toLowerCase() === 'conducta') continue;
+
+      subjects.push(subjName);
+      students.forEach((st, i) => {
+        const val = raw[r][i + 1];
+        const score = (val !== null && val !== undefined && val !== '') ? Number(val) : null;
+        st.scores[subjName] = score;
+      });
+    }
+
+    students.forEach(st => {
+      const scored = subjects.filter(s => st.scores[s] !== null && st.scores[s] !== undefined);
+      const scores = scored.map(s => st.scores[s]);
+      const avg = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
+      const failed = subjects.filter(s => {
+        const sc = st.scores[s];
+        return sc !== null && sc !== undefined && sc < PASSING_SCORE;
+      });
+      st.average = avg;
+      st.category = getCategory(avg);
+      st.failedSubjects = failed;
+      st.failedCount = failed.length;
+    });
+
+    const oneTwo = students.filter(s => s.failedCount === 1 || s.failedCount === 2);
+    const threePlus = students.filter(s => s.failedCount >= 3);
+    const approved = students.filter(s => s.failedCount === 0);
+
+    // Subject → list of students (for 1-2 group)
+    const oneTwoSubjStudents = {};
+    oneTwo.forEach(s => s.failedSubjects.forEach(sub => {
+      if (!oneTwoSubjStudents[sub]) oneTwoSubjStudents[sub] = [];
+      oneTwoSubjStudents[sub].push(s);
+    }));
+
+    // Subject → list of students (for 3+ group)
+    const threePlusSubjStudents = {};
+    threePlus.forEach(s => s.failedSubjects.forEach(sub => {
+      if (!threePlusSubjStudents[sub]) threePlusSubjStudents[sub] = [];
+      threePlusSubjStudents[sub].push(s);
+    }));
+
+    // Legacy count maps (for export)
+    const oneTwoSubjCount = {};
+    Object.entries(oneTwoSubjStudents).forEach(([sub, arr]) => { oneTwoSubjCount[sub] = arr.length; });
+    const threePlusSubjCount = {};
+    Object.entries(threePlusSubjStudents).forEach(([sub, arr]) => { threePlusSubjCount[sub] = arr.length; });
+
+    const catCounts = { AA: { total: 0, f: 0 }, AS: { total: 0, f: 0 }, AF: { total: 0, f: 0 }, AI: { total: 0, f: 0 } };
+    students.forEach(s => {
+      catCounts[s.category].total++;
+      if (s.sex === 'F') catCounts[s.category].f++;
+    });
+
+    grades.push({
+      name: sheetName,
+      displayName: sheetName,
+      total: students.length,
+      totalF: students.filter(s => s.sex === 'F').length,
+      approved: approved.length,
+      approvedF: approved.filter(s => s.sex === 'F').length,
+      oneTwo: oneTwo.length,
+      oneTwoF: oneTwo.filter(s => s.sex === 'F').length,
+      threePlus: threePlus.length,
+      threePlusF: threePlus.filter(s => s.sex === 'F').length,
+      oneTwoSubjCount,
+      threePlusSubjCount,
+      oneTwoSubjStudents,
+      threePlusSubjStudents,
+      catCounts,
+      subjects,
+      students
+    });
+  });
+
+  const totals = {
+    name: 'TOTAL', displayName: 'TOTAL GENERAL',
+    total: 0, totalF: 0,
+    approved: 0, approvedF: 0,
+    oneTwo: 0, oneTwoF: 0,
+    threePlus: 0, threePlusF: 0,
+    catCounts: { AA: { total: 0, f: 0 }, AS: { total: 0, f: 0 }, AF: { total: 0, f: 0 }, AI: { total: 0, f: 0 } }
+  };
+  grades.forEach(g => {
+    totals.total += g.total; totals.totalF += g.totalF;
+    totals.approved += g.approved; totals.approvedF += g.approvedF;
+    totals.oneTwo += g.oneTwo; totals.oneTwoF += g.oneTwoF;
+    totals.threePlus += g.threePlus; totals.threePlusF += g.threePlusF;
+    ['AA','AS','AF','AI'].forEach(c => {
+      totals.catCounts[c].total += g.catCounts[c].total;
+      totals.catCounts[c].f += g.catCounts[c].f;
+    });
+  });
+
+  return { grades, totals };
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+function renderDashboard(stats) {
+  renderSummaryCards(stats);
+  renderMainTable(stats);
+  renderDetainedDetail(stats);
+  renderPromedioGrid(stats);
+}
+
+function renderSummaryCards(stats) {
+  const t = stats.totals;
+  document.getElementById('summaryCards').innerHTML = `
+    <div class="summary-card total">
+      <div class="card-num">${t.total}</div>
+      <div class="card-label">Total alumnos</div>
+      <div style="font-size:12px;color:var(--gray);margin-top:4px">👩 ${t.totalF} mujeres</div>
+    </div>
+    <div class="summary-card approved">
+      <div class="card-num">${t.approved}</div>
+      <div class="card-label">Aprobados limpios</div>
+      <div style="font-size:12px;color:var(--gray);margin-top:4px">👩 ${t.approvedF} mujeres</div>
+    </div>
+    <div class="summary-card one-two">
+      <div class="card-num">${t.oneTwo}</div>
+      <div class="card-label">Aplazados 1–2 materias</div>
+      <div style="font-size:12px;color:var(--gray);margin-top:4px">👩 ${t.oneTwoF} mujeres</div>
+    </div>
+    <div class="summary-card three-plus">
+      <div class="card-num">${t.threePlus}</div>
+      <div class="card-label">Aplazados 3+ materias</div>
+      <div style="font-size:12px;color:var(--gray);margin-top:4px">👩 ${t.threePlusF} mujeres</div>
+    </div>
+  `;
+}
+
+function renderMainTable(stats) {
+  const table = document.getElementById('mainTable');
+  const allRows = [...stats.grades, stats.totals];
+
+  table.innerHTML = `
+    <thead>
+      <tr>
+        <th class="col-grade" rowspan="2">Grado</th>
+        <th colspan="2">Cantidad de Alumnos</th>
+        <th colspan="2">Aprobados Limpios</th>
+        <th colspan="2">Aplazados 1–2 Materias</th>
+        <th colspan="2">Aplazados 3+ Materias</th>
+        <th colspan="2">AA (90–100)</th>
+        <th colspan="2">AS (76–89)</th>
+        <th colspan="2">AF (60–75)</th>
+        <th colspan="2">AI (&lt;60)</th>
+      </tr>
+      <tr>
+        <th>Total</th><th>Mujeres</th>
+        <th>Total</th><th>Mujeres</th>
+        <th>Total</th><th>Mujeres</th>
+        <th>Total</th><th>Mujeres</th>
+        <th>Total</th><th>Mujeres</th>
+        <th>Total</th><th>Mujeres</th>
+        <th>Total</th><th>Mujeres</th>
+        <th>Total</th><th>Mujeres</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${allRows.map((g, i) => {
+        const isTotal = i === allRows.length - 1;
+        return `
+          <tr class="${isTotal ? 'total-row' : ''}">
+            <td class="grade-name">${g.displayName}</td>
+            <td><strong>${g.total}</strong></td>
+            <td>${g.totalF}</td>
+            <td class="cell-approved"><strong>${g.approved}</strong></td>
+            <td class="cell-approved">${g.approvedF}</td>
+            <td class="cell-one-two"><strong>${g.oneTwo}</strong></td>
+            <td class="cell-one-two">${g.oneTwoF}</td>
+            <td class="cell-three-plus"><strong>${g.threePlus}</strong></td>
+            <td class="cell-three-plus">${g.threePlusF}</td>
+            <td style="background:#e8f5e9"><strong>${g.catCounts.AA.total}</strong></td>
+            <td style="background:#e8f5e9">${g.catCounts.AA.f}</td>
+            <td style="background:#e8f0fa"><strong>${g.catCounts.AS.total}</strong></td>
+            <td style="background:#e8f0fa">${g.catCounts.AS.f}</td>
+            <td style="background:#fef9e7"><strong>${g.catCounts.AF.total}</strong></td>
+            <td style="background:#fef9e7">${g.catCounts.AF.f}</td>
+            <td style="background:#fdecea"><strong>${g.catCounts.AI.total}</strong></td>
+            <td style="background:#fdecea">${g.catCounts.AI.f}</td>
+          </tr>`;
+      }).join('')}
+    </tbody>
+  `;
+}
+
+// Toggle student list visibility
+function toggleStudents(id) {
+  const panel = document.getElementById(id);
+  const arrow = document.getElementById('arr-' + id);
+  if (panel.classList.contains('open')) {
+    panel.classList.remove('open');
+    arrow.classList.remove('open');
+  } else {
+    panel.classList.add('open');
+    arrow.classList.add('open');
+  }
+}
+
+function buildSubjBlock(subj, students, type, blockId) {
+  const sexIcon = s => s.sex === 'F' ? '👩' : '👦';
+  const studentPills = students
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map(s => `<li class="student-pill">${sexIcon(s)} ${s.name}</li>`)
+    .join('');
+
+  return `
+    <div class="subj-block ${type}">
+      <div class="subj-block-header" onclick="toggleStudents('${blockId}')">
+        <span class="subj-block-name">${subj}</span>
+        <div class="subj-block-meta">
+          <span class="subj-count-badge">${students.length} alumno${students.length !== 1 ? 's' : ''}</span>
+          <span class="toggle-arrow" id="arr-${blockId}">▶</span>
+        </div>
+      </div>
+      <div class="subj-students" id="${blockId}">
+        <ul class="student-list">${studentPills}</ul>
+      </div>
+    </div>`;
+}
+
+let blockCounter = 0;
+
+function renderDetainedDetail(stats) {
+  const container = document.getElementById('detainedDetail');
+  blockCounter = 0;
+  let html = '';
+
+  stats.grades.forEach(g => {
+    const hasOneTwo = Object.keys(g.oneTwoSubjStudents).length > 0;
+    const hasThreePlus = Object.keys(g.threePlusSubjStudents).length > 0;
+    if (!hasOneTwo && !hasThreePlus) return;
+
+    html += `<div class="detained-grade">
+      <div class="detained-grade-title">📌 ${g.displayName} (${g.name})</div>
+      <div class="detained-list">`;
+
+    if (hasOneTwo) {
+      html += `<div style="margin-bottom:14px">
+        <div class="cat-label one-two">▪ Aplazados de 1–2 materias (${g.oneTwo} alumnos):</div>`;
+      Object.entries(g.oneTwoSubjStudents)
+        .sort((a, b) => b[1].length - a[1].length)
+        .forEach(([subj, students]) => {
+          const id = 'blk_' + (++blockCounter);
+          html += buildSubjBlock(subj, students, 'one-two', id);
+        });
+      html += `</div>`;
+    }
+
+    if (hasThreePlus) {
+      html += `<div>
+        <div class="cat-label three-plus">▪ Aplazados de 3+ materias (${g.threePlus} alumnos):</div>`;
+      Object.entries(g.threePlusSubjStudents)
+        .sort((a, b) => b[1].length - a[1].length)
+        .forEach(([subj, students]) => {
+          const id = 'blk_' + (++blockCounter);
+          html += buildSubjBlock(subj, students, 'three-plus', id);
+        });
+      html += `</div>`;
+    }
+
+    html += `</div></div>`;
+  });
+
+  if (!html) html = '<div class="no-data">No hay alumnos aplazados en ningún grado. ¡Excelente!</div>';
+  container.innerHTML = html;
+}
+
+function renderPromedioGrid(stats) {
+  const cats = [
+    { key: 'AA', label: 'AA — Excelente', emoji: '🏆', cls: 'cat-AA', range: '(90–100)' },
+    { key: 'AS', label: 'AS — Satisfactorio', emoji: '⭐', cls: 'cat-AS', range: '(76–89)' },
+    { key: 'AF', label: 'AF — Aceptable', emoji: '📚', cls: 'cat-AF', range: '(60–75)' },
+    { key: 'AI', label: 'AI — Insuficiente', emoji: '⚠', cls: 'cat-AI', range: '(<60)' },
+  ];
+
+  const grid = document.getElementById('promedioGrid');
+  grid.innerHTML = cats.map(cat => {
+    const rows = stats.grades.map(g => {
+      const c = g.catCounts[cat.key];
+      return `<div class="prom-row">
+        <span class="prom-grade">${g.displayName}</span>
+        <div class="prom-nums">
+          <span class="prom-total">${c.total}</span>
+          <span class="prom-f">👩 ${c.f}</span>
+        </div>
+      </div>`;
+    }).join('');
+    const total = stats.totals.catCounts[cat.key];
+    return `<div class="promedio-card ${cat.cls}">
+      <div class="promedio-header">${cat.emoji} ${cat.label} <span style="font-size:12px;opacity:0.8">${cat.range}</span></div>
+      <div class="promedio-body">
+        ${rows}
+        <div class="prom-row" style="background:#f5f8fb;border-radius:6px;padding:8px 4px;margin-top:6px">
+          <span class="prom-grade" style="font-size:14px">TOTAL</span>
+          <div class="prom-nums">
+            <span class="prom-total" style="font-size:17px">${total.total}</span>
+            <span class="prom-f">👩 ${total.f}</span>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ─── Export to Excel ──────────────────────────────────────────────────────────
+function exportToExcel() {
+  if (!globalStats) return;
+  const stats = globalStats;
+  const wb = XLSX.utils.book_new();
+  const wsData = [];
+
+  const h1 = ['Grado', 'CANTIDAD DE ALUMNOS', null,
+               'APROBADOS LIMPIOS', null,
+               'APLAZADOS DE 1 A 2', null,
+               'APLAZADOS DE 3 A MÁS', null,
+               'AA (90-100)', null,
+               'AS (76-89)', null,
+               'AF (60-75)', null,
+               'AI (<60)', null];
+  wsData.push(h1);
+
+  const h2 = [null, 'TOTAL', 'MUJERES', 'TOTAL', 'MUJERES', 'TOTAL', 'MUJERES',
+               'TOTAL', 'MUJERES', 'TOTAL', 'MUJERES', 'TOTAL', 'MUJERES',
+               'TOTAL', 'MUJERES'];
+  wsData.push(h2);
+
+  const allRows = [...stats.grades, stats.totals];
+  allRows.forEach(g => {
+    wsData.push([
+      g.displayName,
+      g.total, g.totalF,
+      g.approved, g.approvedF,
+      g.oneTwo, g.oneTwoF,
+      g.threePlus, g.threePlusF,
+      g.catCounts.AA.total, g.catCounts.AA.f,
+      g.catCounts.AS.total, g.catCounts.AS.f,
+      g.catCounts.AF.total, g.catCounts.AF.f,
+      g.catCounts.AI.total, g.catCounts.AI.f
+    ]);
+  });
+
+  wsData.push([]);
+  wsData.push(['DETALLE DE MATERIAS APLAZADAS']);
+  wsData.push(['Grado', 'Categoría', 'Materia', 'N° Alumnos', 'Nombre del Alumno', 'Sexo']);
+
+  stats.grades.forEach(g => {
+    Object.entries(g.oneTwoSubjStudents).sort((a,b)=>b[1].length-a[1].length).forEach(([subj, sts]) => {
+      sts.forEach((st, i) => {
+        wsData.push([
+          i === 0 ? g.displayName : '',
+          i === 0 ? 'Aplazados 1-2 materias' : '',
+          i === 0 ? subj : '',
+          i === 0 ? sts.length : '',
+          st.name,
+          st.sex
+        ]);
+      });
+    });
+    Object.entries(g.threePlusSubjStudents).sort((a,b)=>b[1].length-a[1].length).forEach(([subj, sts]) => {
+      sts.forEach((st, i) => {
+        wsData.push([
+          i === 0 ? g.displayName : '',
+          i === 0 ? 'Aplazados 3+ materias' : '',
+          i === 0 ? subj : '',
+          i === 0 ? sts.length : '',
+          st.name,
+          st.sex
+        ]);
+      });
+    });
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  ws['!cols'] = [
+    { wch: 20 }, { wch: 9 }, { wch: 9 },
+    { wch: 9 }, { wch: 9 }, { wch: 9 }, { wch: 9 },
+    { wch: 9 }, { wch: 9 }, { wch: 9 }, { wch: 9 },
+    { wch: 9 }, { wch: 9 }, { wch: 9 }, { wch: 9 },
+    { wch: 28 }, { wch: 6 }
+  ];
+  ws['!merges'] = [
+    { s:{r:0,c:1}, e:{r:0,c:2} },
+    { s:{r:0,c:3}, e:{r:0,c:4} },
+    { s:{r:0,c:5}, e:{r:0,c:6} },
+    { s:{r:0,c:7}, e:{r:0,c:8} },
+    { s:{r:0,c:9}, e:{r:0,c:10} },
+    { s:{r:0,c:11}, e:{r:0,c:12} },
+    { s:{r:0,c:13}, e:{r:0,c:14} },
+    { s:{r:0,c:15}, e:{r:0,c:16} },
+  ];
+
+  XLSX.utils.book_append_sheet(wb, ws, 'ESTADISTICO');
+  XLSX.writeFile(wb, 'Estadistico_Academico.xlsx');
+}
+</script>
+</body>
+</html>
