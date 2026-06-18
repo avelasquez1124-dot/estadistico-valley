@@ -856,7 +856,13 @@
 // ─── AUTH ─────────────────────────────────────────────────────────────────────
 const VALID_USER = 'avelasquez';
 const VALID_PASS = '1124';
-
+// Forzar a que los campos inicien vacíos al cargar la página
+window.addEventListener('DOMContentLoaded', () => {
+  setTimeout(() => {
+    if(document.getElementById('loginUser')) document.getElementById('loginUser').value = '';
+    if(document.getElementById('loginPass')) document.getElementById('loginPass').value = '';
+  }, 100);
+});
 function doLogin() {
   const user = document.getElementById('loginUser').value.trim();
   const pass = document.getElementById('loginPass').value.trim();
