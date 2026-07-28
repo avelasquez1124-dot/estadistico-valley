@@ -1037,7 +1037,7 @@ function analyzeWorkbook(wb) {
         return sc !== null && sc !== undefined && sc < PASSING_SCORE;
       });
       st.average = avg;
-      st.category = getCategory(avg);
+      st.category = failed.length > 0 ? 'AI' : getCategory(avg);
       st.failedSubjects = failed;
       st.failedCount = failed.length;
     });
@@ -1417,4 +1417,3 @@ function exportToExcel() {
 </script>
 </body>
 </html>
-
