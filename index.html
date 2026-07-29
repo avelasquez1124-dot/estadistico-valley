@@ -1018,7 +1018,17 @@ function analyzeWorkbook(wb) {
       const subj = raw[r][0];
       if (!subj) continue;
       const subjName = subj.toString().trim();
-      if (subjName.toLowerCase().includes('conduct') || subjName.toLowerCase() === 'conducta') continue;
+      const isConducta = subjName.toLowerCase().includes('conduct') || subjName.toLowerCase() === 'conducta';
+
+      if (isConducta) {
+        // Conducta no cuenta como materia (no afecta aplazados), pero sí entra en el promedio general.
+        students.forEach((st, i) => {
+          const val = raw[r][i + 1];
+          const score = (val !== null && val !== undefined && val !== '') ? Number(val) : null;
+          st.conductaScore = score;
+        });
+        continue;
+      }
 
       subjects.push(subjName);
       students.forEach((st, i) => {
@@ -1031,13 +1041,16 @@ function analyzeWorkbook(wb) {
     students.forEach(st => {
       const scored = subjects.filter(s => st.scores[s] !== null && st.scores[s] !== undefined);
       const scores = scored.map(s => st.scores[s]);
+      if (st.conductaScore !== null && st.conductaScore !== undefined) {
+        scores.push(st.conductaScore);
+      }
       const avg = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 0;
       const failed = subjects.filter(s => {
         const sc = st.scores[s];
         return sc !== null && sc !== undefined && sc < PASSING_SCORE;
       });
       st.average = avg;
-      st.category = failed.length > 0 ? 'AI' : getCategory(avg);
+      st.category = getCategory(avg);
       st.failedSubjects = failed;
       st.failedCount = failed.length;
     });
