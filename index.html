@@ -453,6 +453,14 @@
   .cell-three-plus { background: #fdecea !important; }
   .cell-three-plus .num-total { color: var(--red); }
 
+  /* Tabla de alumnos que dejaron materias */
+  .cell-dropout-hit {
+    background: #fdecea !important;
+    color: var(--red);
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
   /* Promedio section */
   .promedio-grid {
     display: grid;
@@ -855,6 +863,13 @@
       </div>
     </div>
 
+    <div class="section-title">Alumnos que Dejaron Materias por Grado</div>
+    <div class="table-wrapper">
+      <div class="table-scroll">
+        <table id="dropoutTable"></table>
+      </div>
+    </div>
+
     <div class="section-title">Detalle de Materias Aplazadas</div>
     <div class="detained-section">
       <div class="detained-header">📌 Materias aplazadas por grado — haz clic en cada materia para ver los alumnos</div>
@@ -1132,8 +1147,63 @@ function analyzeWorkbook(wb) {
 function renderDashboard(stats) {
   renderSummaryCards(stats);
   renderMainTable(stats);
+  renderDropoutTable(stats);
   renderDetainedDetail(stats);
   renderPromedioGrid(stats);
+}
+
+// Tabla: alumnos que dejaron materias (nota < 60) por grado
+// El nombre del alumno aparece en la columna de cada materia que reprobó/dejó.
+function renderDropoutTable(stats) {
+  const table = document.getElementById('dropoutTable');
+
+  // Unión de materias, respetando el orden de aparición entre grados
+  const allSubjects = [];
+  stats.grades.forEach(g => {
+    g.subjects.forEach(s => { if (!allSubjects.includes(s)) allSubjects.push(s); });
+  });
+
+  // Un registro por cada alumno que dejó (reprobó) al menos una materia
+  const rows = [];
+  stats.grades.forEach(g => {
+    g.students
+      .filter(st => st.failedSubjects.length > 0)
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .forEach(st => rows.push({ grade: g.displayName, student: st }));
+  });
+
+  if (rows.length === 0) {
+    table.innerHTML = '<tbody><tr><td style="padding:20px;text-align:center;color:var(--gray);font-style:italic;">No hay alumnos que hayan dejado materias (todas las notas son de 60 o más). ¡Excelente!</td></tr></tbody>';
+    return;
+  }
+
+  const subjectCols = allSubjects.map(s => `<th>${s}</th>`).join('');
+
+  const bodyRows = rows.map(r => {
+    const cells = allSubjects.map(subj => {
+      const dejo = r.student.failedSubjects.includes(subj);
+      return `<td class="${dejo ? 'cell-dropout-hit' : ''}">${dejo ? r.student.name : ''}</td>`;
+    }).join('');
+    return `
+      <tr>
+        <td class="grade-name">${r.grade}</td>
+        <td class="grade-name">${r.student.name}</td>
+        ${cells}
+      </tr>`;
+  }).join('');
+
+  table.innerHTML = `
+    <thead>
+      <tr>
+        <th class="col-grade">Grado</th>
+        <th>Nombre del Alumno</th>
+        ${subjectCols}
+      </tr>
+    </thead>
+    <tbody>
+      ${bodyRows}
+    </tbody>
+  `;
 }
 
 function renderSummaryCards(stats) {
@@ -1372,6 +1442,26 @@ function exportToExcel() {
       g.catCounts.AF.total, g.catCounts.AF.f,
       g.catCounts.AI.total, g.catCounts.AI.f
     ]);
+  });
+
+  wsData.push([]);
+  wsData.push(['ALUMNOS QUE DEJARON MATERIAS POR GRADO']);
+  const allSubjectsExport = [];
+  stats.grades.forEach(g => {
+    g.subjects.forEach(s => { if (!allSubjectsExport.includes(s)) allSubjectsExport.push(s); });
+  });
+  wsData.push(['Grado', 'Nombre del Alumno', ...allSubjectsExport]);
+  stats.grades.forEach(g => {
+    g.students
+      .filter(st => st.failedSubjects.length > 0)
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .forEach(st => {
+        const row = [g.displayName, st.name];
+        allSubjectsExport.forEach(subj => {
+          row.push(st.failedSubjects.includes(subj) ? st.name : '');
+        });
+        wsData.push(row);
+      });
   });
 
   wsData.push([]);
