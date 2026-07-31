@@ -1182,7 +1182,7 @@ function renderDropoutTable(stats) {
   const bodyRows = rows.map(r => {
     const cells = allSubjects.map(subj => {
       const dejo = r.student.failedSubjects.includes(subj);
-      return `<td class="${dejo ? 'cell-dropout-hit' : ''}">${dejo ? r.student.name : ''}</td>`;
+      return `<td class="${dejo ? 'cell-dropout-hit' : ''}">${dejo ? 'Aplazada' : ''}</td>`;
     }).join('');
     return `
       <tr>
@@ -1458,7 +1458,7 @@ function exportToExcel() {
       .forEach(st => {
         const row = [g.displayName, st.name];
         allSubjectsExport.forEach(subj => {
-          row.push(st.failedSubjects.includes(subj) ? st.name : '');
+          row.push(st.failedSubjects.includes(subj) ? 'Aplazada' : '');
         });
         wsData.push(row);
       });
