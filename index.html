@@ -424,6 +424,7 @@
   tbody tr { transition: background 0.15s; }
   tbody tr:hover { background: #f5f8fb; }
   tbody tr.total-row { background: #e8eef5; font-weight: 700; }
+  tbody tr.subtotal-row { background: #fbf3e0; }
 
   tbody td {
     padding: 10px 12px;
@@ -444,14 +445,16 @@
   .num-total { font-weight: 700; font-size: 15px; color: var(--primary); }
   .num-m { font-size: 12px; color: var(--gray); }
 
-  .cell-approved { background: #e8f5e9 !important; }
   .cell-approved .num-total { color: var(--green); }
-
-  .cell-one-two { background: #fff3e0 !important; }
   .cell-one-two .num-total { color: var(--orange); }
-
-  .cell-three-plus { background: #fdecea !important; }
   .cell-three-plus .num-total { color: var(--red); }
+
+  tbody tr.row-even { background: #ffffff; }
+  tbody tr.row-odd { background: #f2f5fa; }
+
+  tbody tr.row-pastel-green { background: #eaf6ec; }
+  tbody tr.row-pastel-yellow { background: #fbf6e3; }
+  tbody tr.row-pastel-blue { background: #e8f4f8; }
 
   /* Tabla de alumnos que dejaron materias */
   .cell-dropout-hit {
@@ -870,10 +873,11 @@
       </div>
     </div>
 
-    <div class="section-title">Detalle de Materias Aplazadas</div>
-    <div class="detained-section">
-      <div class="detained-header">📌 Materias aplazadas por grado — haz clic en cada materia para ver los alumnos</div>
-      <div class="detained-body" id="detainedDetail"></div>
+    <div class="section-title">Alumnos que No Dejaron Clases por Materia</div>
+    <div class="table-wrapper">
+      <div class="table-scroll">
+        <table id="approvedSubjectTable"></table>
+      </div>
     </div>
 
     <div class="section-title">Alumnos por Categoría de Promedio</div>
@@ -1148,7 +1152,7 @@ function renderDashboard(stats) {
   renderSummaryCards(stats);
   renderMainTable(stats);
   renderDropoutTable(stats);
-  renderDetainedDetail(stats);
+  renderApprovedSubjectTable(stats);
   renderPromedioGrid(stats);
 }
 
@@ -1158,9 +1162,16 @@ function renderDropoutTable(stats) {
   const table = document.getElementById('dropoutTable');
 
   // Unión de materias, respetando el orden de aparición entre grados
+  // (se usa una clave normalizada para no duplicar la misma materia por
+  // diferencias de mayúsculas/espacios, p.ej. "Social Studies" vs "social studies")
+  const normSubj = s => s.toString().trim().toLowerCase().replace(/\s+/g, ' ');
+  const seenKeys = new Set();
   const allSubjects = [];
   stats.grades.forEach(g => {
-    g.subjects.forEach(s => { if (!allSubjects.includes(s)) allSubjects.push(s); });
+    g.subjects.forEach(s => {
+      const key = normSubj(s);
+      if (!seenKeys.has(key)) { seenKeys.add(key); allSubjects.push(s); }
+    });
   });
 
   // Un registro por cada alumno que dejó (reprobó) al menos una materia
@@ -1177,11 +1188,16 @@ function renderDropoutTable(stats) {
     return;
   }
 
-  const subjectCols = allSubjects.map(s => `<th>${s}</th>`).join('');
+  // Solo se muestran las materias que al menos un alumno dejó (reprobó)
+  const failedKeys = new Set();
+  rows.forEach(r => r.student.failedSubjects.forEach(fs => failedKeys.add(normSubj(fs))));
+  const dropoutSubjects = allSubjects.filter(s => failedKeys.has(normSubj(s)));
+
+  const subjectCols = dropoutSubjects.map(s => `<th>${s}</th>`).join('');
 
   const bodyRows = rows.map(r => {
-    const cells = allSubjects.map(subj => {
-      const dejo = r.student.failedSubjects.includes(subj);
+    const cells = dropoutSubjects.map(subj => {
+      const dejo = r.student.failedSubjects.some(fs => normSubj(fs) === normSubj(subj));
       return `<td class="${dejo ? 'cell-dropout-hit' : ''}">${dejo ? 'Aplazada' : ''}</td>`;
     }).join('');
     return `
@@ -1232,9 +1248,105 @@ function renderSummaryCards(stats) {
   `;
 }
 
+// Determina a qué grupo de subtotal pertenece un grado, a partir del
+// nombre de la hoja/grado. Es tolerante a acentos, mayúsculas y formas
+// abreviadas (1ro, 1°, Primero, Grado 1, etc.). Usa límites de palabra
+// y revisa primero las palabras más específicas (undécimo, décimo...)
+// para evitar falsos positivos con "Primero"/"Segundo".
+function groupForLevel(level) {
+  if (level === 1 || level === 2) return 'G1_2';
+  if (level >= 3 && level <= 6) return 'G3_6';
+  if (level >= 7 && level <= 11) return 'G7_11';
+  return 'OTHER';
+}
+
+function getGradeGroupKey(rawName) {
+  const s = ' ' + rawName.toString()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase() + ' ';
+
+  if (/\bpk\s*-?\s*3\b/.test(s) || /\bpk\s*-?\s*4\b/.test(s) || /\bkinder\b/.test(s) || /pre\s*-?\s*kinder/.test(s) || /preescolar|prescolar/.test(s)) {
+    return 'PRE';
+  }
+
+  const wordLevels = [
+    ['undecimo', 11], ['decimo', 10], ['noveno', 9], ['octavo', 8], ['septimo', 7],
+    ['sexto', 6], ['quinto', 5], ['cuarto', 4], ['tercero', 3], ['segundo', 2], ['primero', 1]
+  ];
+  for (const [w, n] of wordLevels) {
+    if (new RegExp('\\b' + w + '\\b').test(s)) return groupForLevel(n);
+  }
+
+  const m = s.match(/\b(\d{1,2})\b/);
+  if (m) return groupForLevel(parseInt(m[1], 10));
+
+  return 'OTHER';
+}
+
+// Suma los valores de un conjunto de grados en un objeto con la misma
+// forma que "stats.totals", para usarlo como fila de subtotal.
+function sumGradeGroup(gradesArr, displayName) {
+  const sub = {
+    displayName,
+    total: 0, totalF: 0,
+    approved: 0, approvedF: 0,
+    oneTwo: 0, oneTwoF: 0,
+    threePlus: 0, threePlusF: 0,
+    catCounts: { AA: { total: 0, f: 0 }, AS: { total: 0, f: 0 }, AF: { total: 0, f: 0 }, AI: { total: 0, f: 0 } }
+  };
+  gradesArr.forEach(g => {
+    sub.total += g.total; sub.totalF += g.totalF;
+    sub.approved += g.approved; sub.approvedF += g.approvedF;
+    sub.oneTwo += g.oneTwo; sub.oneTwoF += g.oneTwoF;
+    sub.threePlus += g.threePlus; sub.threePlusF += g.threePlusF;
+    ['AA', 'AS', 'AF', 'AI'].forEach(c => {
+      sub.catCounts[c].total += g.catCounts[c].total;
+      sub.catCounts[c].f += g.catCounts[c].f;
+    });
+  });
+  return sub;
+}
+
+// Construye la lista de filas (grados + subtotales + total general) SIN
+// alterar el orden original de los grados: recorre stats.grades tal cual
+// vienen y solo inserta una fila de subtotal cuando termina una racha de
+// grados consecutivos del mismo grupo pedagógico.
+function buildRowsWithSubtotals(stats) {
+  const groupLabels = {
+    PRE: 'SUBTOTAL PK3, PK4 y Kinder',
+    G1_2: 'SUBTOTAL Primero y Segundo',
+    G3_6: 'SUBTOTAL Tercero a Sexto',
+    G7_11: 'SUBTOTAL Séptimo a Undécimo',
+    OTHER: 'SUBTOTAL Otros Grados'
+  };
+
+  const allRows = [];
+  let currentGroup = null;
+  let currentBucket = [];
+
+  const flushBucket = () => {
+    if (currentBucket.length > 0 && currentGroup !== 'OTHER') {
+      allRows.push({ ...sumGradeGroup(currentBucket, groupLabels[currentGroup]), isSubtotal: true });
+    }
+    currentBucket = [];
+  };
+
+  stats.grades.forEach(g => {
+    const key = getGradeGroupKey(g.name);
+    if (currentGroup !== null && key !== currentGroup) flushBucket();
+    currentGroup = key;
+    currentBucket.push(g);
+    allRows.push(g);
+  });
+  flushBucket();
+
+  allRows.push({ ...stats.totals, isTotal: true });
+  return allRows;
+}
+
 function renderMainTable(stats) {
   const table = document.getElementById('mainTable');
-  const allRows = [...stats.grades, stats.totals];
+  const allRows = buildRowsWithSubtotals(stats);
 
   table.innerHTML = `
     <thead>
@@ -1261,113 +1373,120 @@ function renderMainTable(stats) {
       </tr>
     </thead>
     <tbody>
-      ${allRows.map((g, i) => {
-        const isTotal = i === allRows.length - 1;
-        return `
-          <tr class="${isTotal ? 'total-row' : ''}">
+      ${(() => {
+        let gradeIdx = 0;
+        return allRows.map(g => {
+          let rowClass;
+          if (g.isTotal) rowClass = 'total-row';
+          else if (g.isSubtotal) rowClass = 'subtotal-row';
+          else { rowClass = gradeIdx % 2 === 0 ? 'row-even' : 'row-odd'; gradeIdx++; }
+          return `
+          <tr class="${rowClass}">
             <td class="grade-name">${g.displayName}</td>
             <td><strong>${g.total}</strong></td>
             <td>${g.totalF}</td>
-            <td class="cell-approved"><strong>${g.approved}</strong></td>
-            <td class="cell-approved">${g.approvedF}</td>
-            <td class="cell-one-two"><strong>${g.oneTwo}</strong></td>
-            <td class="cell-one-two">${g.oneTwoF}</td>
-            <td class="cell-three-plus"><strong>${g.threePlus}</strong></td>
-            <td class="cell-three-plus">${g.threePlusF}</td>
-            <td style="background:#e8f5e9"><strong>${g.catCounts.AA.total}</strong></td>
-            <td style="background:#e8f5e9">${g.catCounts.AA.f}</td>
-            <td style="background:#e8f0fa"><strong>${g.catCounts.AS.total}</strong></td>
-            <td style="background:#e8f0fa">${g.catCounts.AS.f}</td>
-            <td style="background:#fef9e7"><strong>${g.catCounts.AF.total}</strong></td>
-            <td style="background:#fef9e7">${g.catCounts.AF.f}</td>
-            <td style="background:#fdecea"><strong>${g.catCounts.AI.total}</strong></td>
-            <td style="background:#fdecea">${g.catCounts.AI.f}</td>
+            <td><strong>${g.approved}</strong></td>
+            <td>${g.approvedF}</td>
+            <td><strong>${g.oneTwo}</strong></td>
+            <td>${g.oneTwoF}</td>
+            <td><strong>${g.threePlus}</strong></td>
+            <td>${g.threePlusF}</td>
+            <td><strong>${g.catCounts.AA.total}</strong></td>
+            <td>${g.catCounts.AA.f}</td>
+            <td><strong>${g.catCounts.AS.total}</strong></td>
+            <td>${g.catCounts.AS.f}</td>
+            <td><strong>${g.catCounts.AF.total}</strong></td>
+            <td>${g.catCounts.AF.f}</td>
+            <td><strong>${g.catCounts.AI.total}</strong></td>
+            <td>${g.catCounts.AI.f}</td>
           </tr>`;
-      }).join('')}
+        }).join('');
+      })()}
     </tbody>
   `;
 }
 
-// Toggle student list visibility
-function toggleStudents(id) {
-  const panel = document.getElementById(id);
-  const arrow = document.getElementById('arr-' + id);
-  if (panel.classList.contains('open')) {
-    panel.classList.remove('open');
-    arrow.classList.remove('open');
-  } else {
-    panel.classList.add('open');
-    arrow.classList.add('open');
-  }
-}
+// Tabla: cantidad de alumnos por grado que APROBARON (no dejaron) cada
+// materia, desglosado por sexo. Solo se cuentan alumnos con nota
+// registrada en esa materia y con nota >= PASSING_SCORE.
+function renderApprovedSubjectTable(stats) {
+  const table = document.getElementById('approvedSubjectTable');
 
-function buildSubjBlock(subj, students, type, blockId) {
-  const sexIcon = s => s.sex === 'F' ? '👩' : '👦';
-  const studentPills = students
-    .sort((a, b) => a.name.localeCompare(b.name))
-    .map(s => `<li class="student-pill">${sexIcon(s)} ${s.name}</li>`)
-    .join('');
-
-  return `
-    <div class="subj-block ${type}">
-      <div class="subj-block-header" onclick="toggleStudents('${blockId}')">
-        <span class="subj-block-name">${subj}</span>
-        <div class="subj-block-meta">
-          <span class="subj-count-badge">${students.length} alumno${students.length !== 1 ? 's' : ''}</span>
-          <span class="toggle-arrow" id="arr-${blockId}">▶</span>
-        </div>
-      </div>
-      <div class="subj-students" id="${blockId}">
-        <ul class="student-list">${studentPills}</ul>
-      </div>
-    </div>`;
-}
-
-let blockCounter = 0;
-
-function renderDetainedDetail(stats) {
-  const container = document.getElementById('detainedDetail');
-  blockCounter = 0;
-  let html = '';
-
+  const normSubj = s => s.toString().trim().toLowerCase().replace(/\s+/g, ' ');
+  const seenKeys = new Set();
+  const allSubjects = [];
   stats.grades.forEach(g => {
-    const hasOneTwo = Object.keys(g.oneTwoSubjStudents).length > 0;
-    const hasThreePlus = Object.keys(g.threePlusSubjStudents).length > 0;
-    if (!hasOneTwo && !hasThreePlus) return;
-
-    html += `<div class="detained-grade">
-      <div class="detained-grade-title">📌 ${g.displayName} (${g.name})</div>
-      <div class="detained-list">`;
-
-    if (hasOneTwo) {
-      html += `<div style="margin-bottom:14px">
-        <div class="cat-label one-two">▪ Aplazados de 1–2 materias (${g.oneTwo} alumnos):</div>`;
-      Object.entries(g.oneTwoSubjStudents)
-        .sort((a, b) => b[1].length - a[1].length)
-        .forEach(([subj, students]) => {
-          const id = 'blk_' + (++blockCounter);
-          html += buildSubjBlock(subj, students, 'one-two', id);
-        });
-      html += `</div>`;
-    }
-
-    if (hasThreePlus) {
-      html += `<div>
-        <div class="cat-label three-plus">▪ Aplazados de 3+ materias (${g.threePlus} alumnos):</div>`;
-      Object.entries(g.threePlusSubjStudents)
-        .sort((a, b) => b[1].length - a[1].length)
-        .forEach(([subj, students]) => {
-          const id = 'blk_' + (++blockCounter);
-          html += buildSubjBlock(subj, students, 'three-plus', id);
-        });
-      html += `</div>`;
-    }
-
-    html += `</div></div>`;
+    g.subjects.forEach(s => {
+      const key = normSubj(s);
+      if (!seenKeys.has(key)) { seenKeys.add(key); allSubjects.push(s); }
+    });
   });
 
-  if (!html) html = '<div class="no-data">No hay alumnos aplazados en ningún grado. ¡Excelente!</div>';
-  container.innerHTML = html;
+  if (allSubjects.length === 0) {
+    table.innerHTML = '<tbody><tr><td style="padding:20px;text-align:center;color:var(--gray);font-style:italic;">No hay materias registradas.</td></tr></tbody>';
+    return;
+  }
+
+  // Cuenta, para un grupo de alumnos y una materia, cuántos aprobaron
+  // (tienen nota registrada y >= PASSING_SCORE), separados por sexo.
+  function countApproved(students, subj) {
+    let total = 0, hombres = 0, mujeres = 0;
+    students.forEach(st => {
+      const key = Object.keys(st.scores).find(k => normSubj(k) === normSubj(subj));
+      const sc = key !== undefined ? st.scores[key] : null;
+      if (sc !== null && sc !== undefined && sc >= PASSING_SCORE) {
+        total++;
+        if (st.sex === 'F') mujeres++; else hombres++;
+      }
+    });
+    return { total, hombres, mujeres };
+  }
+
+  const rows = stats.grades.map(g => {
+    const subjCounts = allSubjects.map(subj => countApproved(g.students, subj));
+    return { grade: g, subjCounts };
+  });
+
+  // Fila de Total General
+  const totalGeneral = {
+    grade: { displayName: 'TOTAL GENERAL', total: stats.totals.total, totalF: stats.totals.totalF },
+    subjCounts: allSubjects.map((subj, i) => {
+      let total = 0, hombres = 0, mujeres = 0;
+      rows.forEach(r => { total += r.subjCounts[i].total; hombres += r.subjCounts[i].hombres; mujeres += r.subjCounts[i].mujeres; });
+      return { total, hombres, mujeres };
+    })
+  };
+
+  const subjectHeaderCols = allSubjects.map(s => `<th colspan="2">${s}</th>`).join('');
+  const subjectSubHeaderCols = allSubjects.map(() => `<th>Total</th><th>Mujeres</th>`).join('');
+
+  const rowColors = ['row-pastel-green', 'row-pastel-yellow', 'row-pastel-blue'];
+
+  const buildRow = (r, rowClass) => `
+    <tr class="${rowClass}">
+      <td class="grade-name">${r.grade.displayName}</td>
+      <td><strong>${r.grade.total}</strong></td>
+      <td><strong>${r.grade.totalF}</strong></td>
+      ${r.subjCounts.map(c => `<td>${c.total}</td><td>${c.mujeres}</td>`).join('')}
+    </tr>`;
+
+  table.innerHTML = `
+    <thead>
+      <tr>
+        <th class="col-grade" rowspan="2">Grado</th>
+        <th colspan="2">Total Alumnos</th>
+        ${subjectHeaderCols}
+      </tr>
+      <tr>
+        <th>Total</th><th>Mujeres</th>
+        ${subjectSubHeaderCols}
+      </tr>
+    </thead>
+    <tbody>
+      ${rows.map((r, i) => buildRow(r, rowColors[i % rowColors.length])).join('')}
+      ${buildRow(totalGeneral, 'total-row')}
+    </tbody>
+  `;
 }
 
 function renderPromedioGrid(stats) {
@@ -1429,7 +1548,7 @@ function exportToExcel() {
                'TOTAL', 'MUJERES'];
   wsData.push(h2);
 
-  const allRows = [...stats.grades, stats.totals];
+  const allRows = buildRowsWithSubtotals(stats);
   allRows.forEach(g => {
     wsData.push([
       g.displayName,
@@ -1446,54 +1565,83 @@ function exportToExcel() {
 
   wsData.push([]);
   wsData.push(['ALUMNOS QUE DEJARON MATERIAS POR GRADO']);
+  const normSubjExport = s => s.toString().trim().toLowerCase().replace(/\s+/g, ' ');
+  const seenKeysExport = new Set();
   const allSubjectsExport = [];
   stats.grades.forEach(g => {
-    g.subjects.forEach(s => { if (!allSubjectsExport.includes(s)) allSubjectsExport.push(s); });
+    g.subjects.forEach(s => {
+      const key = normSubjExport(s);
+      if (!seenKeysExport.has(key)) { seenKeysExport.add(key); allSubjectsExport.push(s); }
+    });
   });
-  wsData.push(['Grado', 'Nombre del Alumno', ...allSubjectsExport]);
+  const dropoutRowsExport = [];
   stats.grades.forEach(g => {
     g.students
       .filter(st => st.failedSubjects.length > 0)
       .sort((a, b) => a.name.localeCompare(b.name))
-      .forEach(st => {
-        const row = [g.displayName, st.name];
-        allSubjectsExport.forEach(subj => {
-          row.push(st.failedSubjects.includes(subj) ? 'Aplazada' : '');
-        });
-        wsData.push(row);
-      });
+      .forEach(st => dropoutRowsExport.push({ grade: g.displayName, student: st }));
+  });
+  const failedKeysExport = new Set();
+  dropoutRowsExport.forEach(r => r.student.failedSubjects.forEach(fs => failedKeysExport.add(normSubjExport(fs))));
+  const dropoutSubjectsExport = allSubjectsExport.filter(s => failedKeysExport.has(normSubjExport(s)));
+
+  wsData.push(['Grado', 'Nombre del Alumno', ...dropoutSubjectsExport]);
+  dropoutRowsExport.forEach(r => {
+    const row = [r.grade, r.student.name];
+    dropoutSubjectsExport.forEach(subj => {
+      row.push(r.student.failedSubjects.some(fs => normSubjExport(fs) === normSubjExport(subj)) ? 'Aplazada' : '');
+    });
+    wsData.push(row);
   });
 
   wsData.push([]);
-  wsData.push(['DETALLE DE MATERIAS APLAZADAS']);
-  wsData.push(['Grado', 'Categoría', 'Materia', 'N° Alumnos', 'Nombre del Alumno', 'Sexo']);
-
+  wsData.push(['ALUMNOS QUE NO DEJARON CLASES POR MATERIA (APROBADOS)']);
+  const normSubjApproved = s => s.toString().trim().toLowerCase().replace(/\s+/g, ' ');
+  const seenKeysApproved = new Set();
+  const allSubjectsApproved = [];
   stats.grades.forEach(g => {
-    Object.entries(g.oneTwoSubjStudents).sort((a,b)=>b[1].length-a[1].length).forEach(([subj, sts]) => {
-      sts.forEach((st, i) => {
-        wsData.push([
-          i === 0 ? g.displayName : '',
-          i === 0 ? 'Aplazados 1-2 materias' : '',
-          i === 0 ? subj : '',
-          i === 0 ? sts.length : '',
-          st.name,
-          st.sex
-        ]);
-      });
-    });
-    Object.entries(g.threePlusSubjStudents).sort((a,b)=>b[1].length-a[1].length).forEach(([subj, sts]) => {
-      sts.forEach((st, i) => {
-        wsData.push([
-          i === 0 ? g.displayName : '',
-          i === 0 ? 'Aplazados 3+ materias' : '',
-          i === 0 ? subj : '',
-          i === 0 ? sts.length : '',
-          st.name,
-          st.sex
-        ]);
-      });
+    g.subjects.forEach(s => {
+      const key = normSubjApproved(s);
+      if (!seenKeysApproved.has(key)) { seenKeysApproved.add(key); allSubjectsApproved.push(s); }
     });
   });
+
+  function countApprovedExport(students, subj) {
+    let total = 0, hombres = 0, mujeres = 0;
+    students.forEach(st => {
+      const key = Object.keys(st.scores).find(k => normSubjApproved(k) === normSubjApproved(subj));
+      const sc = key !== undefined ? st.scores[key] : null;
+      if (sc !== null && sc !== undefined && sc >= PASSING_SCORE) {
+        total++;
+        if (st.sex === 'F') mujeres++; else hombres++;
+      }
+    });
+    return { total, hombres, mujeres };
+  }
+
+  const headerRow1 = ['Grado', 'Total Alumnos', 'Total Mujeres'];
+  allSubjectsApproved.forEach(s => { headerRow1.push(s + ' (Total)'); headerRow1.push(s + ' (Mujeres)'); });
+  wsData.push(headerRow1);
+
+  stats.grades.forEach(g => {
+    const row = [g.displayName, g.total, g.totalF];
+    allSubjectsApproved.forEach(subj => {
+      const c = countApprovedExport(g.students, subj);
+      row.push(c.total, c.mujeres);
+    });
+    wsData.push(row);
+  });
+
+  const totalRow = ['TOTAL GENERAL', stats.totals.total, stats.totals.totalF];
+  allSubjectsApproved.forEach(subj => {
+    let total = 0, mujeres = 0;
+    stats.grades.forEach(g => {
+      const c = countApprovedExport(g.students, subj);
+      total += c.total; mujeres += c.mujeres;
+    });
+    totalRow.push(total, mujeres);
+  });
+  wsData.push(totalRow);
 
   const ws = XLSX.utils.aoa_to_sheet(wsData);
   ws['!cols'] = [
