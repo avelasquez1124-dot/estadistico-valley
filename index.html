@@ -689,6 +689,36 @@
 
   .btn-export:hover { background: #1e8449; }
 
+  /* Botón imprimir PDF por tabla */
+  .btn-print-pdf {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--primary); color: var(--white);
+    border: none; border-radius: 7px; padding: 6px 14px;
+    font-family: 'Barlow', sans-serif; font-size: 13px; font-weight: 700;
+    cursor: pointer; letter-spacing: 0;
+  }
+  .btn-print-pdf:hover { background: #223d5e; }
+
+  /* Impresión: solo se muestra la copia de la tabla elegida */
+  #printRoot { display: none; }
+  body.is-printing > *:not(#printRoot) { display: none !important; }
+  body.is-printing { background: #fff !important; margin: 0; padding: 0; min-height: 0; }
+  body.is-printing #printRoot { display: block; }
+  #printRoot .print-fit { width: 1280px; overflow: hidden; }
+  #printRoot .print-inner { transform-origin: top left; }
+  #printRoot .table-wrapper { box-shadow: none; border-radius: 0; }
+  #printRoot .table-scroll { overflow: visible; }
+  #printRoot tbody tr:hover { background: inherit; }
+  #printRoot, #printRoot * {
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  #printRoot thead { display: table-header-group; }
+  #printRoot thead th { white-space: normal !important; padding: 6px 5px !important; line-height: 1.15; }
+  #printRoot tbody td { padding: 7px 5px !important; }
+  #printRoot tbody td.grade-name { padding-left: 8px !important; }
+  #printRoot tr { page-break-inside: avoid; }
+
+
   .btn-reset {
     display: inline-flex;
     align-items: center;
@@ -859,25 +889,31 @@
       <div class="legend-item">📋 TOTAL / 👩 Mujeres (en paréntesis)</div>
     </div>
 
-    <div class="section-title">Estadístico por Grado y Categoría</div>
+    <div class="print-block" id="block-main">
+    <div class="section-title">Estadístico por Grado y Categoría<button class="btn-print-pdf no-print" onclick="printSection('block-main')">🖨 Imprimir PDF</button></div>
     <div class="table-wrapper">
       <div class="table-scroll">
         <table id="mainTable"></table>
       </div>
     </div>
+    </div>
 
-    <div class="section-title">Alumnos que Dejaron Materias por Grado</div>
+    <div class="print-block" id="block-dropout">
+    <div class="section-title">Alumnos que Dejaron Materias por Grado<button class="btn-print-pdf no-print" onclick="printSection('block-dropout')">🖨 Imprimir PDF</button></div>
     <div class="table-wrapper">
       <div class="table-scroll">
         <table id="dropoutTable"></table>
       </div>
     </div>
+    </div>
 
-    <div class="section-title">Alumnos que No Dejaron Clases por Materia</div>
+    <div class="print-block" id="block-approved">
+    <div class="section-title">Alumnos que No Dejaron Clases por Materia<button class="btn-print-pdf no-print" onclick="printSection('block-approved')">🖨 Imprimir PDF</button></div>
     <div class="table-wrapper">
       <div class="table-scroll">
         <table id="approvedSubjectTable"></table>
       </div>
+    </div>
     </div>
 
     <div class="section-title">Alumnos por Categoría de Promedio</div>
@@ -1148,6 +1184,72 @@ function analyzeWorkbook(wb) {
 }
 
 // ─── Render ───────────────────────────────────────────────────────────────────
+
+// ─── Imprimir tabla en PDF (Legal horizontal, ajustada al contenido) ───
+function printSection(blockId) {
+  const src = document.getElementById(blockId);
+  if (!src) return;
+
+  const PAGE_W = 1280;   // ancho útil aprox. de Legal horizontal (14in - márgenes), en px CSS
+  const PAGE_H = 740;    // alto útil aprox. (8.5in - márgenes)
+
+  // Copia de la sección, sin botones ni ids duplicados
+  const clone = src.cloneNode(true);
+  clone.querySelectorAll('.no-print').forEach(el => el.remove());
+  clone.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
+
+  const root = document.createElement('div');
+  root.id = 'printRoot';
+  const fit = document.createElement('div');
+  fit.className = 'print-fit';
+  const inner = document.createElement('div');
+  inner.className = 'print-inner';
+  inner.appendChild(clone);
+  fit.appendChild(inner);
+  root.appendChild(fit);
+  document.body.appendChild(root);
+  document.body.classList.add('is-printing');
+
+  // @page Legal horizontal
+  const pageStyle = document.createElement('style');
+  pageStyle.id = 'dynPageStyle';
+  pageStyle.textContent = '@page { size: legal landscape; margin: 8mm; }';
+  document.head.appendChild(pageStyle);
+
+  // 1) Ancho natural de la tabla
+  inner.style.display = 'inline-block';
+  inner.style.width = 'min-content';
+  const naturalW = inner.offsetWidth;
+
+  // 2) Escala para que quepa en el ancho de la página
+  let scale = Math.min(1, PAGE_W / naturalW);
+  let layoutW = scale < 1 ? naturalW : PAGE_W;
+  inner.style.width = layoutW + 'px';
+
+  // 3) Si queda muy alta, reducir para que quepa en una página (mínimo 55%)
+  let h = inner.offsetHeight;
+  const scaleH = PAGE_H / h;
+  if (scaleH < scale) {
+    scale = Math.max(scaleH, 0.55);
+    layoutW = Math.max(naturalW, PAGE_W / scale);
+    inner.style.width = layoutW + 'px';
+    h = inner.offsetHeight;
+  }
+
+  inner.style.transform = 'scale(' + scale + ')';
+  fit.style.height = Math.ceil(h * scale) + 'px';
+
+  const cleanup = () => {
+    window.removeEventListener('afterprint', cleanup);
+    document.body.classList.remove('is-printing');
+    root.remove();
+    pageStyle.remove();
+  };
+  window.addEventListener('afterprint', cleanup);
+
+  setTimeout(() => window.print(), 50);
+}
+
 function renderDashboard(stats) {
   renderSummaryCards(stats);
   renderMainTable(stats);
@@ -1406,6 +1508,48 @@ function renderMainTable(stats) {
   `;
 }
 
+
+// Orden fijo de materias para la tabla "No Dejaron Clases por Materia".
+// Cada posición acepta varias palabras clave (inglés/español). Las materias
+// que no coincidan con ninguna se agregan al final en su orden original.
+const SUBJECT_ORDER_PRIORITY = [
+  ['mathematics', 'matematica'],
+  ['spanish', 'espanol'],
+  ['english', 'ingles'],
+  ['art and culture', 'arte y cultura'],
+  ['growing in values', 'values', 'valores'],
+  ['physical education', 'educacion fisica'],
+  ['entrepreneur', 'emprender'],
+  ['rights and dignity', 'derecho y dignidad'],
+  ['science', 'ciencias naturales'],
+  ['social studies', 'knowing my', 'ciencias sociales'],
+  ['world history', 'history', 'geografia'],
+  ['chemistry', 'quimica'],
+  ['physics', 'fisica'],
+  ['biology', 'biologia']
+];
+
+function stripAccentsLower(str) {
+  return str.toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function subjectPriorityIndex(name) {
+  const k = stripAccentsLower(name);
+  // Se prueba primero la coincidencia más específica de cada posición
+  for (let i = 0; i < SUBJECT_ORDER_PRIORITY.length; i++) {
+    if (SUBJECT_ORDER_PRIORITY[i].some(w => k.includes(w))) return i;
+  }
+  return SUBJECT_ORDER_PRIORITY.length;
+}
+
+function sortSubjectsByPriority(subjects) {
+  return subjects
+    .map((s, idx) => ({ s, idx, p: subjectPriorityIndex(s) }))
+    .sort((a, b) => a.p - b.p || a.idx - b.idx)
+    .map(x => x.s);
+}
+
 // Tabla: cantidad de alumnos por grado que APROBARON (no dejaron) cada
 // materia, desglosado por sexo. Solo se cuentan alumnos con nota
 // registrada en esa materia y con nota >= PASSING_SCORE.
@@ -1414,13 +1558,14 @@ function renderApprovedSubjectTable(stats) {
 
   const normSubj = s => s.toString().trim().toLowerCase().replace(/\s+/g, ' ');
   const seenKeys = new Set();
-  const allSubjects = [];
+  let allSubjects = [];
   stats.grades.forEach(g => {
     g.subjects.forEach(s => {
       const key = normSubj(s);
       if (!seenKeys.has(key)) { seenKeys.add(key); allSubjects.push(s); }
     });
   });
+  allSubjects = sortSubjectsByPriority(allSubjects);
 
   if (allSubjects.length === 0) {
     table.innerHTML = '<tbody><tr><td style="padding:20px;text-align:center;color:var(--gray);font-style:italic;">No hay materias registradas.</td></tr></tbody>';
@@ -1598,13 +1743,14 @@ function exportToExcel() {
   wsData.push(['ALUMNOS QUE NO DEJARON CLASES POR MATERIA (APROBADOS)']);
   const normSubjApproved = s => s.toString().trim().toLowerCase().replace(/\s+/g, ' ');
   const seenKeysApproved = new Set();
-  const allSubjectsApproved = [];
+  let allSubjectsApproved = [];
   stats.grades.forEach(g => {
     g.subjects.forEach(s => {
       const key = normSubjApproved(s);
       if (!seenKeysApproved.has(key)) { seenKeysApproved.add(key); allSubjectsApproved.push(s); }
     });
   });
+  allSubjectsApproved = sortSubjectsByPriority(allSubjectsApproved);
 
   function countApprovedExport(students, subj) {
     let total = 0, hombres = 0, mujeres = 0;
