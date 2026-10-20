@@ -464,6 +464,14 @@
     white-space: nowrap;
   }
 
+  /* Tablas de notas por grado (Décimo / Undécimo) */
+  .cell-low {
+    background: #fdecea !important;
+    color: var(--red);
+    font-weight: 700;
+  }
+  .cell-empty { color: var(--gray); }
+
   /* Promedio section */
   .promedio-grid {
     display: grid;
@@ -916,6 +924,24 @@
     </div>
     </div>
 
+    <div class="print-block" id="block-grade10">
+    <div class="section-title">Notas de Décimo Grado por Alumno<button class="btn-print-pdf no-print" onclick="printSection('block-grade10')">🖨 Imprimir PDF</button></div>
+    <div class="table-wrapper">
+      <div class="table-scroll">
+        <table id="grade10Table"></table>
+      </div>
+    </div>
+    </div>
+
+    <div class="print-block" id="block-grade11">
+    <div class="section-title">Notas de Undécimo Grado por Alumno<button class="btn-print-pdf no-print" onclick="printSection('block-grade11')">🖨 Imprimir PDF</button></div>
+    <div class="table-wrapper">
+      <div class="table-scroll">
+        <table id="grade11Table"></table>
+      </div>
+    </div>
+    </div>
+
     <div class="section-title">Alumnos por Categoría de Promedio</div>
     <div class="cat-defs">
       <div class="cat-def AA">AA — Excelente (90–100)</div>
@@ -1323,6 +1349,8 @@ function renderDashboard(stats) {
   renderMainTable(stats);
   renderDropoutTable(stats);
   renderApprovedSubjectTable(stats);
+  renderGradeScoresTable(stats, 10, 'grade10Table', GRADE10_COLUMNS);
+  renderGradeScoresTable(stats, 11, 'grade11Table', GRADE11_COLUMNS);
   renderPromedioGrid(stats);
 }
 
@@ -1704,6 +1732,134 @@ function renderApprovedSubjectTable(stats) {
     <tbody>
       ${rows.map((r, i) => buildRow(r, rowColors[i % rowColors.length])).join('')}
       ${buildRow(totalGeneral, 'total-row')}
+    </tbody>
+  `;
+}
+
+// ─── Tablas de notas por alumno: Décimo y Undécimo grado ─────────────────────
+// Cada columna: [etiqueta, palabras clave para reconocer la materia en el Excel]
+// o la marca especial 'CONDUCT' (la conducta se guarda aparte de las materias).
+// El orden de este arreglo es el orden exacto de las columnas.
+const GRADE10_COLUMNS = [
+  ['Mathematics', ['mathematics', 'matematica']],
+  ['Spanish', ['spanish', 'espanol']],
+  ['English', ['english', 'ingles']],
+  ['Physical Education', ['physical education', 'educacion fisica']],
+  ['Entrepreneurship', ['entrepreneur', 'emprend']],
+  ['Social Studies/Knowing my word', ['social studies', 'knowing my', 'ciencias sociales']],
+  ['Chemistry', ['chemistry', 'quimica']],
+  ['Physics', ['physics', 'fisica'], ['educ', 'physical']],
+  ['Growing in Values', ['growing in values', 'values', 'valores']],
+  ['Rights and dignity of Women', ['rights and dignity', 'dignity', 'derecho']],
+  ['Conduct', 'CONDUCT']
+];
+
+const GRADE11_COLUMNS = [
+  ['Mathematics', ['mathematics', 'matematica']],
+  ['Spanish', ['spanish', 'espanol']],
+  ['English', ['english', 'ingles']],
+  ['Physical Education', ['physical education', 'educacion fisica']],
+  ['Entrepreneurship', ['entrepreneur', 'emprend']],
+  ['Social Studies/Knowing my word', ['social studies', 'knowing my', 'ciencias sociales']],
+  ['Physics', ['physics', 'fisica'], ['educ', 'physical']],
+  ['Biology', ['biology', 'biologia']],
+  ['Growing in Values', ['growing in values', 'values', 'valores']],
+  ['Rights and dignity of Women', ['rights and dignity', 'dignity', 'derecho']],
+  ['Conduct', 'CONDUCT']
+];
+
+// Nivel numérico (1–11) de una hoja según su nombre; null si no se reconoce.
+function gradeLevelOf(rawName) {
+  const s = ' ' + stripAccentsLower(rawName) + ' ';
+  const wordLevels = [
+    ['undecimo', 11], ['eleventh', 11], ['decimo', 10], ['tenth', 10],
+    ['noveno', 9], ['ninth', 9], ['octavo', 8], ['eighth', 8],
+    ['septimo', 7], ['seventh', 7], ['sexto', 6], ['sixth', 6],
+    ['quinto', 5], ['fifth', 5], ['cuarto', 4], ['fourth', 4],
+    ['tercero', 3], ['third', 3], ['segundo', 2], ['second', 2],
+    ['primero', 1], ['first', 1]
+  ];
+  for (const [w, n] of wordLevels) {
+    if (new RegExp('\\b' + w + '\\b').test(s)) return n;
+  }
+  const m = s.match(/(?<!\d)(\d{1,2})(?!\d)/);
+  return m ? parseInt(m[1], 10) : null;
+}
+
+function formatScoreCell(v) {
+  if (v === null || v === undefined || v === '' || isNaN(v)) return null;
+  const n = Number(v);
+  return Number.isInteger(n) ? String(n) : String(parseFloat(n.toFixed(2)));
+}
+
+// Tabla con Nombre, Código y la nota de cada materia (en el orden indicado).
+function renderGradeScoresTable(stats, level, tableId, columns) {
+  const table = document.getElementById(tableId);
+  const label = level === 10 ? 'Décimo' : 'Undécimo';
+
+  const matched = stats.grades.filter(g => gradeLevelOf(g.name) === level);
+  if (matched.length === 0) {
+    table.innerHTML = '<tbody><tr><td style="padding:20px;text-align:center;color:var(--gray);font-style:italic;">No se encontró una hoja de ' + label + ' grado en el archivo.</td></tr></tbody>';
+    return;
+  }
+  const showSection = matched.length > 1; // varias hojas del mismo grado (A, B...)
+
+  // Para cada hoja, decide qué materia del Excel corresponde a cada columna.
+  // Una materia ya asignada no se reutiliza en otra columna.
+  const headerLabels = columns.map(c => c[0]);
+  const resolved = matched.map(g => {
+    const used = new Set();
+    return columns.map(col => {
+      if (col[1] === 'CONDUCT') return { conduct: true };
+      const keys = col[1], excludes = col[2] || [];
+      const found = g.subjects.find(subj => {
+        if (used.has(subj)) return false;
+        const k = stripAccentsLower(subj);
+        if (excludes.some(x => k.includes(x))) return false;
+        return keys.some(w => k.includes(w));
+      });
+      if (found !== undefined) used.add(found);
+      return { subject: found };
+    });
+  });
+
+  const rows = [];
+  matched.forEach((g, gi) => {
+    g.students.slice()
+      .sort((a, b) => a.name.toString().localeCompare(b.name.toString()))
+      .forEach(st => rows.push({ g, gi, st }));
+  });
+
+  const bodyRows = rows.map(r => {
+    const cells = resolved[r.gi].map(col => {
+      let v = null;
+      if (col.conduct) v = r.st.conductaScore;
+      else if (col.subject !== undefined) v = r.st.scores[col.subject];
+      const txt = formatScoreCell(v);
+      if (txt === null) return '<td class="cell-empty">—</td>';
+      const low = !col.conduct && Number(v) < PASSING_SCORE;
+      return '<td class="' + (low ? 'cell-low' : '') + '">' + txt + '</td>';
+    }).join('');
+    return `
+      <tr>
+        ${showSection ? '<td class="grade-name">' + r.g.displayName + '</td>' : ''}
+        <td class="grade-name">${r.st.name}</td>
+        <td>${studentCode(r.st)}</td>
+        ${cells}
+      </tr>`;
+  }).join('');
+
+  table.innerHTML = `
+    <thead>
+      <tr>
+        ${showSection ? '<th class="col-grade">Grado</th>' : ''}
+        <th>Nombre del Alumno</th>
+        <th>Código Único</th>
+        ${headerLabels.map(h => '<th>' + h + '</th>').join('')}
+      </tr>
+    </thead>
+    <tbody>
+      ${bodyRows}
     </tbody>
   `;
 }
