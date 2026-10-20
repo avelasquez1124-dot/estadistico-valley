@@ -1046,6 +1046,62 @@ function resetApp() {
   globalStats = null;
 }
 
+// ─── Datos personales del alumno (código único, fecha de nacimiento, edad) ───
+// Se leen de filas del Excel cuya celda de la columna A diga, por ejemplo,
+// "Código único", "Fecha de nacimiento" y "Edad". Esas filas NO se cuentan como materias.
+function personalRowType(label) {
+  const k = label.toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+  if (/codigo|unico/.test(k)) return 'codigo';
+  if (/nacimiento|birth|nacim/.test(k)) return 'birth';
+  if (/^edad|^age\b/.test(k)) return 'edad';
+  return null;
+}
+
+// Convierte el valor de la celda (serie de Excel, texto dd/mm/aaaa, aaaa-mm-dd o Date) en Date (UTC)
+function parseBirthDate(val) {
+  if (val === null || val === undefined || val === '') return null;
+  if (val instanceof Date && !isNaN(val)) return new Date(Date.UTC(val.getFullYear(), val.getMonth(), val.getDate()));
+  if (typeof val === 'number' && val > 1000 && val < 80000) {
+    return new Date(Math.round((val - 25569) * 86400 * 1000));
+  }
+  const t = val.toString().trim();
+  let m = t.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/);
+  if (m) return new Date(Date.UTC(+m[3], +m[2] - 1, +m[1]));
+  m = t.match(/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})/);
+  if (m) return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+  return null;
+}
+
+function formatBirthDate(val) {
+  const d = parseBirthDate(val);
+  if (!d) return (val === null || val === undefined) ? '' : val.toString();
+  const dd = String(d.getUTCDate()).padStart(2, '0');
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+  return dd + '/' + mm + '/' + d.getUTCFullYear();
+}
+
+// Edad en años cumplidos a la fecha de hoy
+function calcAge(val) {
+  const d = parseBirthDate(val);
+  if (!d) return '';
+  const now = new Date();
+  let age = now.getFullYear() - d.getUTCFullYear();
+  const mDiff = now.getMonth() - d.getUTCMonth();
+  if (mDiff < 0 || (mDiff === 0 && now.getDate() < d.getUTCDate())) age--;
+  return age >= 0 ? age : '';
+}
+
+function studentCode(st) { return (st.codigo === null || st.codigo === undefined) ? '' : st.codigo.toString().trim(); }
+function studentBirth(st) { return formatBirthDate(st.birth); }
+function studentAge(st) {
+  if (st.edad !== null && st.edad !== undefined && st.edad !== '') {
+    const n = Number(st.edad);
+    // Edad en años enteros (sin decimales): se toman los años cumplidos
+    return isNaN(n) ? st.edad : Math.floor(n);
+  }
+  return calcAge(st.birth);
+}
+
 // ─── Analysis ─────────────────────────────────────────────────────────────────
 function analyzeWorkbook(wb) {
   const grades = [];
@@ -1073,6 +1129,18 @@ function analyzeWorkbook(wb) {
       const subj = raw[r][0];
       if (!subj) continue;
       const subjName = subj.toString().trim();
+
+      const pType = personalRowType(subjName);
+      if (pType) {
+        students.forEach((st, i) => {
+          const val = raw[r][i + 1];
+          if (pType === 'codigo') st.codigo = (val === undefined) ? null : val;
+          else if (pType === 'birth') st.birth = (val === undefined) ? null : val;
+          else if (pType === 'edad') st.edad = (val === undefined) ? null : val;
+        });
+        continue;
+      }
+
       const isConducta = subjName.toLowerCase().includes('conduct') || subjName.toLowerCase() === 'conducta';
 
       if (isConducta) {
@@ -1306,6 +1374,9 @@ function renderDropoutTable(stats) {
       <tr>
         <td class="grade-name">${r.grade}</td>
         <td class="grade-name">${r.student.name}</td>
+        <td>${studentCode(r.student)}</td>
+        <td>${studentBirth(r.student)}</td>
+        <td>${studentAge(r.student)}</td>
         ${cells}
       </tr>`;
   }).join('');
@@ -1315,6 +1386,9 @@ function renderDropoutTable(stats) {
       <tr>
         <th class="col-grade">Grado</th>
         <th>Nombre del Alumno</th>
+        <th>Código Único</th>
+        <th>Fecha de Nacimiento</th>
+        <th>Edad</th>
         ${subjectCols}
       </tr>
     </thead>
@@ -1730,9 +1804,9 @@ function exportToExcel() {
   dropoutRowsExport.forEach(r => r.student.failedSubjects.forEach(fs => failedKeysExport.add(normSubjExport(fs))));
   const dropoutSubjectsExport = allSubjectsExport.filter(s => failedKeysExport.has(normSubjExport(s)));
 
-  wsData.push(['Grado', 'Nombre del Alumno', ...dropoutSubjectsExport]);
+  wsData.push(['Grado', 'Nombre del Alumno', 'Código Único', 'Fecha de Nacimiento', 'Edad', ...dropoutSubjectsExport]);
   dropoutRowsExport.forEach(r => {
-    const row = [r.grade, r.student.name];
+    const row = [r.grade, r.student.name, studentCode(r.student), studentBirth(r.student), studentAge(r.student)];
     dropoutSubjectsExport.forEach(subj => {
       row.push(r.student.failedSubjects.some(fs => normSubjExport(fs) === normSubjExport(subj)) ? 'Aplazada' : '');
     });
